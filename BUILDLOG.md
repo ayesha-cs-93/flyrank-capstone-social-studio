@@ -23,6 +23,12 @@ Studio" brief. Logging honestly per the brief's requirement.
   to detach it properly.
 
 ## What I changed / still need to do
+- [x] Real Telegram/Discord publish test — used a Discord channel webhook
+      (Telegram was unreachable on the dev network) as the real free
+      target. A live message landed in the Discord channel with a real
+      message id; the idempotency guarantee held against the real
+      adapter too (1 success + 3 duplicate_skipped on manual retry).
+      See EVIDENCE.md.
 - [x] Durable-scheduler crash-and-resume test — `kill -9`'d uvicorn
       before a scheduled publish fired, waited past the publish time
       with no server running, restarted. The missed job fired
@@ -32,10 +38,6 @@ Studio" brief. Logging honestly per the brief's requirement.
       (GitHub's drag-and-drop upload silently dropped the `app/`
       subfolder on a mobile browser — `git push --force` from a local
       clone was the fix).
-- [ ] Get a real Telegram bot token + chat ID and re-run Probe 4/6
-      against the real `TelegramPublisher` (currently only tested
-      against the mock adapters — the real HTTP call path in
-      `adapters.py::TelegramPublisher.publish` is untested live).
 - [ ] Decide whether to keep template-based variant generation
       (current, zero API keys needed) or wire up the optional
       Gemini/Ollama AI path.
@@ -46,3 +48,11 @@ Studio" brief. Logging honestly per the brief's requirement.
   and tries to compile from source via Rust/maturin, which fails
   without the MSVC linker installed. Loosened all pins in
   `requirements.txt` to `>=` for the same reason.
+- Discord's edge (Cloudflare) returns `error code: 1010` and rejects
+  requests from Python's default `urllib` User-Agent — fixed by
+  setting an explicit `User-Agent` header in `DiscordPublisher`.
+- On Windows, PowerShell's `Out-File -Encoding utf8` writes a BOM at
+  the start of the file, which broke `python-dotenv`'s parsing of
+  `.env` (silently failed to load `DISCORD_WEBHOOK_URL`). Fixed by
+  writing `.env` with `-Encoding ascii` instead (the webhook URL is
+  plain ASCII, so no data loss).

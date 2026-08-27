@@ -50,7 +50,35 @@ class. Changing `"x": MockXPublisher` to `"x": TelegramPublisher` (or vice
 versa) is a one-line registry edit; `scheduler.py` and `main.py` are
 untouched.
 
-## Idempotent publish — the core proof
+## Real publish — Discord (Probe 4 + Probe 6)
+
+Live test with `DISCORD_WEBHOOK_URL` set to a real Discord channel webhook.
+Approved and scheduled an `"x"` variant, which routes through
+`DiscordPublisher` (see `ADAPTER_REGISTRY` in `app/adapters.py`):
+
+```
+GET /publish-history ->
+{'slot_id': '087fe27f-...', 'result': 'success',
+ 'detail': 'discord:msg:1542491998580383806:channel:1542481202651336746',
+ 'attempted_at': '2026-08-27T11:12:35.047743'}
+```
+
+A real message landed in the Discord channel (message id
+`1542491998580383806`), confirming Probe 4 (real publish to a target the
+intern owns) against a genuinely external system — not a mock. Because
+`ADAPTER_REGISTRY["x"]` is the only place this is wired, swapping back to
+`MockXPublisher` (Probe 6) is a one-line change, no other file touched.
+
+Same idempotency guarantee holds against the real adapter, not just
+mocks — the manual re-run (Step 7 below) was run against this same real
+Discord slot:
+```
+success rows for slot: 1 (must be 1)
+duplicate_skipped rows: 3
+IDEMPOTENCY CHECK PASSED — exactly one post, despite 4 total publish calls.
+```
+
+## Idempotent publish — the core proof (mock-adapter walkthrough)
 
 Slot published once by the scheduler, then `publish_slot(slot_id)` called
 3 more times manually (simulating retries):
