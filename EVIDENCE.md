@@ -67,12 +67,31 @@ duplicate_skipped rows: 3
 IDEMPOTENCY CHECK PASSED — exactly one post, despite 4 total publish calls.
 ```
 
-## Durable scheduling
+## Durable scheduling — crash + restart, zero duplicates
 
 Jobs are stored in `SQLAlchemyJobStore(url="sqlite:///./social_studio.db")`
-— the same DB file, not in-memory. A process restart re-reads pending jobs
-from this table, so a worker killed mid-batch resumes without re-running
-completed jobs (guarded additionally by the idempotency check above).
+— the same DB file, not in-memory.
+
+Live test: scheduled a slot 20s out, then `kill -9`'d the uvicorn process
+(hard crash, not a graceful shutdown) *before* the publish time. Waited
+past the scheduled time with no server running at all, then restarted:
+
+```
+[restart log]
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.executors.default:Running job "publish_slot ..." (scheduled at 2026-08-27T09:59:50)
+INFO:apscheduler.scheduler:Removed job publish-4a132644-...
+INFO:scheduler:slot 4a132644-... published -> mock:mock_x:82f974eb-...
+INFO:apscheduler.executors.default:Job "publish_slot ..." executed successfully
+
+GET /publish-history ->
+[{"slot_id": "4a132644-...", "result": "success", "detail": "mock:mock_x:...", ...}]
+```
+
+Exactly one `success` row for the slot — the missed job fired automatically
+on restart (APScheduler's `misfire_grace_time=3600` in `scheduler.py`
+covers this) and the idempotency guard means it can never double-publish
+even if it had somehow tried twice.
 
 ## Publish history
 
