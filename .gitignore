@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+social_studio.db
+mock_publish_store/
+.venv/
+venv/
